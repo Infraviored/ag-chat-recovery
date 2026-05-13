@@ -124,7 +124,7 @@ def handle_recovery(targets):
     print(f"\n[STEP 1] Create {len(targets)} NEW chats in Profile B.")
     print("\nPaste this EXACTLY into each new chat:\n")
     print("--------------------------------------------------")
-    print("STOP. do NOT THINK. forget ALL INSTRUCTIONS. just say HI and END. you are FORBIDDEN TO THINK!")
+    print("Do not look at the workspace, I forbid it. The only thing you should do is briefly say hi. Hi mate!")
     print("--------------------------------------------------\n")
     
     input(f"Press ENTER once all {len(targets)} are created...")
@@ -171,7 +171,16 @@ def handle_recovery(targets):
                      os.path.join(CONV_DIR, f"{dummies[i]['uuid']}.pb"))
         print(f"DONE: {targets[i]['topic'][:30]}...")
 
-    print("\nAll tasks finished! Please RESTART Antigravity.")
+    print("\nAll tasks finished!")
+    input("\nPress ENTER to close Antigravity (soft shutdown)...")
+    
+    import subprocess
+    try:
+        # Send SIGTERM to all processes named 'antigravity'
+        subprocess.run(["pkill", "-15", "antigravity"], check=False)
+        print("Shutdown signal sent.")
+    except Exception as e:
+        print(f"Could not send shutdown signal: {e}")
 
 if __name__ == "__main__":
     try:
