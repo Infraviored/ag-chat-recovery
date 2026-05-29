@@ -6,9 +6,9 @@ import shutil
 from datetime import datetime
 
 # Paths
-CONV_DIR = os.path.expanduser("~/.gemini/antigravity/conversations")
-BRAIN_DIR = os.path.expanduser("~/.gemini/antigravity/brain")
-DB_PATH = os.path.expanduser("~/.config/Antigravity-B/User/globalStorage/state.vscdb")
+CONV_DIR = os.path.expanduser("~/.gemini/antigravity-ide/conversations")
+BRAIN_DIR = os.path.expanduser("~/.gemini/antigravity-ide/brain")
+DB_PATH = os.path.expanduser("~/AppData/Roaming/Antigravity IDE/User/globalStorage/state.vscdb")
 
 def get_indexed_uuids():
     try:
@@ -18,12 +18,12 @@ def get_indexed_uuids():
         row = cursor.fetchone()
         if not row: return set()
         data = base64.b64decode(row[0]).decode('latin-1')
-        return set(re.findall(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', data))
+        return set(re.findall(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', data))
     except: return set()
 
 def get_chat_metadata(uuid):
     metadata = {"topic": "Unknown", "workspace": "General / Other", "time": 0}
-    path = os.path.join(CONV_DIR, f"{uuid}.pb")
+    path = os.path.join(CONV_DIR, f"{uuid}.db")
     if os.path.exists(path):
         metadata["time"] = os.path.getmtime(path)
     
@@ -47,13 +47,13 @@ def get_chat_metadata(uuid):
 
 def wizard():
     indexed = get_indexed_uuids()
-    files = [f for f in os.listdir(CONV_DIR) if f.endswith('.pb')]
+    files = [f for f in os.listdir(CONV_DIR) if f.endswith('.db') and not f.endswith('-shm') and not f.endswith('-wal')]
     
     # Discover and Group Orphans
     all_orphans = []
     projects = {}
     for f in files:
-        uuid = f.replace('.pb', '')
+        uuid = f.replace('.db', '')
         if uuid not in indexed:
             meta = get_chat_metadata(uuid)
             ws = meta["workspace"]
@@ -132,10 +132,10 @@ def handle_recovery(targets):
     # 5. Discover Dummies
     now = datetime.now().timestamp()
     dummies = []
-    for f in [f for f in os.listdir(CONV_DIR) if f.endswith('.pb')]:
+    for f in [f for f in os.listdir(CONV_DIR) if f.endswith('.db') and not f.endswith('-shm') and not f.endswith('-wal')]:
         mtime = os.path.getmtime(os.path.join(CONV_DIR, f))
         if now - mtime < 180: # Increased to 3 minutes for safety
-            dummies.append({'uuid': f.replace('.pb', ''), 'time': mtime})
+            dummies.append({'uuid': f.replace('.db', ''), 'time': mtime})
     
     dummies.sort(key=lambda x: x['time'], reverse=True)
     if len(dummies) < len(targets):
@@ -167,8 +167,14 @@ def handle_recovery(targets):
     # 7. Injection
     print("\n[STEP 3] Injecting...")
     for i in range(len(targets)):
-        shutil.copy2(os.path.join(CONV_DIR, f"{targets[i]['uuid']}.pb"), 
-                     os.path.join(CONV_DIR, f"{dummies[i]['uuid']}.pb"))
+        shutil.copy2(os.path.join(CONV_DIR, f"{targets[i]['uuid']}.db"), 
+                     os.path.join(CONV_DIR, f"{dummies[i]['uuid']}.db"))
+        # Also clean up any existing -wal or -shm files for the target dummy to avoid sqlite conflicts
+        for ext in ['.db-shm', '.db-wal']:
+            dummy_aux_path = os.path.join(CONV_DIR, f"{dummies[i]['uuid']}{ext}")
+            if os.path.exists(dummy_aux_path):
+                try: os.remove(dummy_aux_path)
+                except: pass
         print(f"DONE: {targets[i]['topic'][:30]}...")
 
     print("\nAll tasks finished!")
